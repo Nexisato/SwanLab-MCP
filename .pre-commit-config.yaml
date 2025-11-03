@@ -1,0 +1,16 @@
+repos:
+  - repo: local
+    hooks:
+      - id: make-format
+        name: make format
+        entry: make format
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: commit-msg
+        name: commit msg check
+        entry: scripts/commit-msg-check.sh
+        language: script
+        stages: [commit-msg]
+        always_run: true

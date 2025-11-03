@@ -1,0 +1,51 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+
+# IDEs and editors
+.vscode/
+.idea/
+
+
+# macOS
+.DS_Store
+
+# Logs and databases
+*.log
+*.sqlite3
+
+# linters and formatters
+.ropeproject/
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+*ruff_cache/
+
+# playground
+playground/
+
+
+# settings
+.claude/*
+.cursor/*
+
+
+# AI agents
+AGENTS.md
+GEMINI.md
+CLAUDE.md
+IFLOW.md
+QWEN.md
+
+# env
+.env
+uv.lock

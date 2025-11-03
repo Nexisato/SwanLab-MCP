@@ -1,0 +1,12 @@
+from ._version import __version__
+from .config import SwanLabConfig
+
+
+def main() -> None:
+    """Serve as the main entry point for SwanLab MCP Server."""
+    from .cli import main as cli_main
+
+    cli_main()
+
+
+__all__ = ["main", "__version__", "SwanLabConfig"]

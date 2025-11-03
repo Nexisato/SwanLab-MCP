@@ -1,0 +1,7 @@
+"""Constants for SwanLab MCP Server."""
+
+DEFAULT_SWANLAB_HOST = "https://swanlab.cn"
+DEFAULT_SWANLAB_API_HOST = "https://api.swanlab.cn"
+
+
+DEFAULT_API_TIMEOUT_SECONDS = 10
