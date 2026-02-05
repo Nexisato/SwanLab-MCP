@@ -32,8 +32,8 @@
     ...
     {
     "swanlab-mcp": {
-      "command": "uv",
-      "args": ["run", "swanlab_mcp", "--transport", "stdio"],
+      "command": "uvx",
+      "args": ["swanlab_mcp", "--transport", "stdio"],
       "env": {
         "SWANLAB_API_KEY": "your_api_key_here"
       }

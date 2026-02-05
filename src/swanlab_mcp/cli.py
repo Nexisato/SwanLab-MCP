@@ -16,14 +16,12 @@ def create_parser() -> argparse.ArgumentParser:
 Examples:
   %(prog)s                        # Run with stdio transport (default)
   %(prog)s --transport stdio      # Run with stdio transport
-  %(prog)s --transport sse        # Run with SSE transport
-  %(prog)s --transport http       # Run with streamable HTTP transport
         """,
     )
 
     parser.add_argument(
         "--transport",
-        choices=["stdio", "sse", "http"],
+        choices=["stdio"],
         default="stdio",
         help="Transport type (default: stdio)",
     )
