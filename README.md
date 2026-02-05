@@ -17,7 +17,6 @@
 - **Core Framework**: FastMCP (v2.14.4+)
 - **API Client**: SwanLab SDK
 - **Config Management**: Pydantic Settings
-- **Logging**: Loguru
 
 ## 🚀 Quick Start
 
@@ -39,6 +38,12 @@ Add the following configuration to your relative mcp config list
     }
   }
 }
+```
+
+For `Claude Code` Users, you can config like this:
+
+```bash
+claude mcp add --env SWANLAB_API_KEY=<your_api_key> -- swanlab_mcp uv run swanlab_mcp --transport stdio
 ```
 
 ### Prerequisites
@@ -80,12 +85,6 @@ python -m swanlab_mcp
 
 # Or using CLI
 python -m swanlab_mcp --transport stdio
-
-# Using SSE transport
-python -m swanlab_mcp --transport sse
-
-# Using HTTP transport
-python -m swanlab_mcp --transport http
 
 # Check version
 python -m swanlab_mcp --version

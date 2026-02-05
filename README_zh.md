@@ -17,7 +17,6 @@
 - **核心框架**: FastMCP (v2.14.4+)
 - **API 客户端**: SwanLab SDK
 - **配置管理**: Pydantic Settings
-- **日志**: Loguru
 
 ## 🚀 快速开始
 
@@ -40,6 +39,11 @@
     }
   }
 }
+```
+对于 `Claude Code` 用户，可以一次性配置：
+
+```bash
+claude mcp add --env SWANLAB_API_KEY=<your_api_key> -- swanlab_mcp uv run swanlab_mcp --transport stdio
 ```
 
 ### 环境要求
@@ -81,12 +85,6 @@ python -m swanlab_mcp
 
 # 或使用 CLI
 python -m swanlab_mcp --transport stdio
-
-# 使用 SSE 传输
-python -m swanlab_mcp --transport sse
-
-# 使用 HTTP 传输
-python -m swanlab_mcp --transport http
 
 # 查看版本
 python -m swanlab_mcp --version
