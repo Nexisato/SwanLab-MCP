@@ -2,15 +2,12 @@
 name = "swanlab-mcp"
 dynamic = ["version"]
 description = "MCP (Model Context Protocol) server support for SwanLab"
-authors = [
-    { name = "CaddiesNew", email = "nexisato0810@gmail.com" }
-]
+authors = [{ name = "CaddiesNew", email = "nexisato0810@gmail.com" }]
 license = { text = "MIT" }
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "fastmcp>=2.14.4",
-    "loguru>=0.7.3",
     "pydantic-settings>=2.0.0",
     "python-dotenv>=1.2.1",
     "swanlab",
@@ -27,10 +24,7 @@ packages = ["src/swanlab_mcp"]
 swanlab_mcp = "swanlab_mcp.cli:main"
 
 [dependency-groups]
-dev = [
-    "pre-commit>=4.3.0",
-    "ruff>=0.14.3",
-]
+dev = ["pre-commit>=4.3.0", "ruff>=0.14.3"]
 
 [tool.hatch.version]
 path = "src/swanlab_mcp/_version.py"
@@ -41,14 +35,7 @@ line-length = 122
 target-version = "py312"
 include = ["**/*.py", "**/*.pyi"]
 src = ["src"]
-exclude = [
-    ".git",
-    ".ruff_cache",
-    ".venv",
-    "__pycache__",
-    "build",
-    "dist",
-]
+exclude = [".git", ".ruff_cache", ".venv", "__pycache__", "build", "dist"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["constants", "tools"]
