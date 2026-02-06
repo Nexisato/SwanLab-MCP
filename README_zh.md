@@ -149,10 +149,10 @@ bash scripts/install-hooks.sh
 
 MIT License
 
-[release-shield]: https://img.shields.io/github/v/release/Nexisato/SwanLab-MCP?logo=github&style=flat-square&labelColor=black&color=ffffff
+[release-shield]: https://img.shields.io/github/v/release/Nexisato/SwanLab-MCP?logo=github&style=flat-square&labelColor=black&color=e0e0e0
 [release-link]: https://github.com/Nexisato/SwanLab-MCP/releases
 
-[license-shield]: https://img.shields.io/badge/license-MIT%202.0-white?labelColor=black&style=flat-square
+[license-shield]: https://img.shields.io/badge/license-MIT%202.0-e0e0e0?labelColor=black&style=flat-square
 [license-shield-link]: https://github.com/Nexisato/SwanLab-MCP/blob/main/LICENSE
 
 [pypi-version-shield]: https://img.shields.io/pypi/v/swanlab-mcp?color=c4f042&labelColor=black&style=flat-square
