@@ -1,4 +1,24 @@
-# SwanLab-MCP-Server
+<div align="center">
+
+# SwanLab MCP Server
+
+[![][release-shield]][release-link] &nbsp; [![][pypi-version-shield]][pypi-version-shield-link] &nbsp; [![][pypi-downloads-shield]][pypi-downloads-shield-link] &nbsp; [![][license-shield]][license-shield-link]
+
+</div>
+
+
+[release-shield]: https://img.shields.io/github/v/release/Nexisato/SwanLab-MCP?logo=github&style=flat-square&labelColor=black&color=ffffff
+[release-link]: https://github.com/Nexisato/SwanLab-MCP/releases
+
+[license-shield]: https://img.shields.io/badge/license-MIT%202.0-white?labelColor=black&style=flat-square
+[license-shield-link]: https://github.com/Nexisato/SwanLab-MCP/blob/main/LICENSE
+
+[pypi-version-shield]: https://img.shields.io/pypi/v/swanlab-mcp?color=c4f042&labelColor=black&style=flat-square
+[pypi-version-shield-link]: https://pypi.org/project/swanlab-mcp/
+
+[pypi-downloads-shield]: https://img.shields.io/pypi/dm/swanlab-mcp?color=c4f042&labelColor=black&style=flat-square
+[pypi-downloads-shield-link]: https://pypi.org/project/swanlab-mcp/
+
 
 > A Model Context Protocol (MCP) server implementation for SwanLab, combining SwanLab-OpenAPI & FastMCP.
 
