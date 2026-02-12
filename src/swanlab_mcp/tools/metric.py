@@ -1,4 +1,7 @@
-"""Metric related MCP tools."""
+"""Metric related MCP tools.
+
+指标管理工具，用于获取实验的指标数据。
+"""
 
 from typing import Any, Dict, List, Optional
 
@@ -7,11 +10,14 @@ from mcp.types import ToolAnnotations
 from swanlab import Api
 
 from ..models import MetricTable
-from ._normalize import ensure_run_path
+from ..utils import validate_run_path
 
 
 class MetricTools:
-    """SwanLab Metric (指标) management tools."""
+    """SwanLab Metric (指标) management tools.
+
+    获取实验的指标数据，返回 pandas DataFrame 格式的数据。
+    """
 
     def __init__(self, api: Api):
         self.api = api
@@ -36,7 +42,7 @@ class MetricTools:
             MetricTable object containing query information and metric rows
         """
         try:
-            normalized_path = ensure_run_path(path)
+            normalized_path = validate_run_path(path)
             normalized_x_axis = x_axis.strip()
             if not normalized_x_axis:
                 raise ValueError("`x_axis` cannot be empty.")
@@ -48,7 +54,9 @@ class MetricTools:
                 if sample <= 0:
                     raise ValueError("`sample` must be greater than 0.")
                 kwargs["sample"] = sample
-
+            #!TMP: sample 设定为 1000，避免一次性返回过多数据导致性能问题；后续可优化为分页查询
+            if sample is None:
+                kwargs["sample"] = 1000
             metrics_df = run.metrics(**kwargs)
             rows: List[Dict[str, Any]] = []
             columns: List[str] = []
@@ -82,7 +90,8 @@ def register_metric_tools(mcp: FastMCP, api: Api) -> None:
 
     @mcp.tool(
         name="swanlab_get_run_metrics",
-        description="Get metric data for a run (experiment). Returns a list of metric records.",
+        description="Get metric data for a run (experiment). Returns a list of metric records. "
+        "获取实验的指标数据，返回指标记录列表。",
         annotations=ToolAnnotations(
             title="Get metric data for a run.",
             readOnlyHint=True,
@@ -105,6 +114,7 @@ def register_metric_tools(mcp: FastMCP, api: Api) -> None:
 
         Returns:
             Structured metric table with rows, columns and query metadata.
+            返回结构化指标表，包含行数据、列名和查询元数据。
         """
         metric_table = await metric_tools.get_run_metrics(path, keys, x_axis, sample)
         return metric_table.model_dump()

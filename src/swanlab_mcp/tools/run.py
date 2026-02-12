@@ -1,24 +1,39 @@
-"""Run (Experiment) related MCP tools."""
+"""Run (Experiment) related MCP tools.
 
+实验管理工具，用于获取实验信息、配置、元数据和依赖。
+"""
+
+from collections.abc import Mapping
 from typing import Any, Dict, List, Optional
 
+import pandas as pd
 from mcp.server.fastmcp import FastMCP
 from mcp.types import ToolAnnotations
 from swanlab import Api
 
 from ..models import Run
-from ._normalize import (
-    ensure_project_path,
-    ensure_run_filters,
-    ensure_run_path,
-    profile_section,
-    to_plain_dict,
-    to_plain_dict_list,
-)
+from ..utils import to_plain_dict, validate_project_path, validate_run_path
+
+
+def _profile_section(run_obj: Any, section: str) -> Any:
+    """Extract a section from run profile.
+
+    从实验 profile 中提取指定部分（config、metadata、requirements）。
+    """
+    profile = getattr(run_obj, "profile", None)
+    if profile is None:
+        run_data = to_plain_dict(run_obj)
+        return run_data.get("profile", {}).get(section)
+    if isinstance(profile, Mapping):
+        return profile.get(section)
+    return getattr(profile, section, None)
 
 
 class RunTools:
-    """SwanLab Run (Experiment) management tools."""
+    """SwanLab Run (Experiment) management tools.
+
+    实验是单次训练/推理任务，包含指标、配置、日志等数据。
+    """
 
     def __init__(self, api: Api):
         self.api = api
@@ -55,12 +70,12 @@ class RunTools:
             - profile: 实验配置信息
         """
         try:
-            kwargs: Dict[str, Any] = {"path": ensure_project_path(path)}
+            kwargs: Dict[str, Any] = {"path": validate_project_path(path)}
             if filters:
-                kwargs["filters"] = ensure_run_filters(filters)
+                kwargs["filters"] = filters
 
             runs = self.api.runs(**kwargs)
-            return [Run(**run_data) for run_data in to_plain_dict_list(runs)]
+            return [Run(**to_plain_dict(run)) for run in runs]
         except Exception as e:
             raise RuntimeError(f"Failed to list runs for project '{path}': {str(e)}") from e
 
@@ -75,7 +90,7 @@ class RunTools:
             Run object with detailed information including profile data
         """
         try:
-            normalized_path = ensure_run_path(path)
+            normalized_path = validate_run_path(path)
             run = self.api.run(path=normalized_path)
             return Run(**to_plain_dict(run))
         except Exception as e:
@@ -92,9 +107,9 @@ class RunTools:
             Configuration dictionary
         """
         try:
-            normalized_path = ensure_run_path(path)
+            normalized_path = validate_run_path(path)
             run = self.api.run(path=normalized_path)
-            config = profile_section(run, "config")
+            config = _profile_section(run, "config")
             return config if isinstance(config, dict) else {}
         except Exception as e:
             raise RuntimeError(f"Failed to get config for run '{path}': {str(e)}") from e
@@ -110,9 +125,9 @@ class RunTools:
             Metadata dictionary containing Python版本、硬件信息等
         """
         try:
-            normalized_path = ensure_run_path(path)
+            normalized_path = validate_run_path(path)
             run = self.api.run(path=normalized_path)
-            metadata = profile_section(run, "metadata")
+            metadata = _profile_section(run, "metadata")
             return metadata if isinstance(metadata, dict) else {}
         except Exception as e:
             raise RuntimeError(f"Failed to get metadata for run '{path}': {str(e)}") from e
@@ -128,9 +143,9 @@ class RunTools:
             List of Python package requirements
         """
         try:
-            normalized_path = ensure_run_path(path)
+            normalized_path = validate_run_path(path)
             run = self.api.run(path=normalized_path)
-            requirements = profile_section(run, "requirements")
+            requirements = _profile_section(run, "requirements")
             if requirements is None:
                 return []
             if isinstance(requirements, list):
@@ -152,7 +167,8 @@ def register_run_tools(mcp: FastMCP, api: Api) -> None:
 
     @mcp.tool(
         name="swanlab_list_runs",
-        description="List all runs (experiments) in a project with optional filtering.",
+        description="List all runs (experiments) in a project with optional filtering. "
+        "实验是单次训练/推理任务，包含指标、配置、日志等数据。",
         annotations=ToolAnnotations(
             title="List all runs in a project.",
             readOnlyHint=True,
@@ -174,13 +190,14 @@ def register_run_tools(mcp: FastMCP, api: Api) -> None:
 
         Returns:
             List of runs with their names, states, descriptions, and metadata.
+            返回实验列表，包含名称、状态、描述和元数据。
         """
         runs = await run_tools.list_runs(path=path, filters=filters)
         return [run.model_dump() for run in runs]
 
     @mcp.tool(
         name="swanlab_get_run",
-        description="Get detailed information about a specific run (experiment).",
+        description="Get detailed information about a specific run (experiment). 获取指定实验的详细信息。",
         annotations=ToolAnnotations(
             title="Get detailed information about a specific run.",
             readOnlyHint=True,
@@ -195,13 +212,14 @@ def register_run_tools(mcp: FastMCP, api: Api) -> None:
 
         Returns:
             Run details including profile data, configuration, and metadata.
+            返回实验详情，包含 profile 数据、配置和元数据。
         """
         run = await run_tools.get_run(path)
         return run.model_dump()
 
     @mcp.tool(
         name="swanlab_get_run_config",
-        description="Get the configuration (config) for a specific run (experiment).",
+        description="Get the configuration (config) for a specific run (experiment). 获取实验的配置信息。",
         annotations=ToolAnnotations(
             title="Get run configuration.",
             readOnlyHint=True,
@@ -216,12 +234,14 @@ def register_run_tools(mcp: FastMCP, api: Api) -> None:
 
         Returns:
             Configuration dictionary containing hyperparameters and settings.
+            返回配置字典，包含超参数和设置。
         """
         return await run_tools.get_run_config(path)
 
     @mcp.tool(
         name="swanlab_get_run_metadata",
-        description="Get the environment metadata for a specific run (experiment).",
+        description="Get the environment metadata for a specific run (experiment). "
+        "获取实验的环境元数据，如 Python 版本、硬件信息。",
         annotations=ToolAnnotations(
             title="Get run metadata.",
             readOnlyHint=True,
@@ -236,12 +256,13 @@ def register_run_tools(mcp: FastMCP, api: Api) -> None:
 
         Returns:
             Metadata dictionary containing Python version, hardware info, etc.
+            返回元数据字典，包含 Python 版本、硬件信息等。
         """
         return await run_tools.get_run_metadata(path)
 
     @mcp.tool(
         name="swanlab_get_run_requirements",
-        description="Get the Python requirements for a specific run (experiment).",
+        description="Get the Python requirements for a specific run (experiment). 获取实验的 Python 依赖信息。",
         annotations=ToolAnnotations(
             title="Get run requirements.",
             readOnlyHint=True,
@@ -256,5 +277,6 @@ def register_run_tools(mcp: FastMCP, api: Api) -> None:
 
         Returns:
             List of Python package requirements.
+            返回 Python 包依赖列表。
         """
         return await run_tools.get_run_requirements(path)
