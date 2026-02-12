@@ -1,11 +1,11 @@
 """SwanLab MCP Server."""
 
 from mcp.server.fastmcp import FastMCP
-from swanlab import OpenApi
+from swanlab import Api
 
 from .config import get_config
 from .meta.info import get_server_name_with_version
-from .tools import register_experiment_tools, register_project_tools, register_workspace_tools
+from .tools import register_metric_tools, register_project_tools, register_run_tools, register_workspace_tools
 
 
 def create_mcp_server():
@@ -13,7 +13,7 @@ def create_mcp_server():
     config = get_config()
 
     # Initialize SwanLab API
-    swanlab_api = OpenApi(api_key=config.api_key or "")
+    swanlab_api = Api(api_key=config.api_key, host=config.host)
 
     # Initialize MCP server
     mcp = FastMCP(
@@ -22,10 +22,10 @@ def create_mcp_server():
         A Model Context Protocol (MCP) server for SwanLab - a collaborative machine learning experiment tracking platform.
 
         This server provides tools to:
-        - List and manage workspaces
-        - List, get, and delete projects
-        - List, get, and delete experiments
-        - Retrieve experiment metrics and summaries
+        - Query workspace metadata and workspace projects
+        - Query project metadata and project runs
+        - Query run metadata, config, requirements and environment profile
+        - Query run metrics as structured tables
 
         All operations require a valid SWANLAB_API_KEY set in the environment.
         """,
@@ -34,5 +34,6 @@ def create_mcp_server():
     # Register all tools
     register_workspace_tools(mcp, swanlab_api)
     register_project_tools(mcp, swanlab_api)
-    register_experiment_tools(mcp, swanlab_api)
+    register_run_tools(mcp, swanlab_api)
+    register_metric_tools(mcp, swanlab_api)
     return mcp

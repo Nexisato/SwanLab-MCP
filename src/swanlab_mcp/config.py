@@ -1,9 +1,9 @@
 """Configuration management for SwanLab MCP Server."""
 
 from pydantic import Field
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from .constants import DEFAULT_API_TIMEOUT_SECONDS, DEFAULT_SWANLAB_API_HOST, DEFAULT_SWANLAB_HOST
+from .constants import DEFAULT_API_TIMEOUT_SECONDS, DEFAULT_SWANLAB_HOST
 
 
 class SwanLabConfig(BaseSettings):
@@ -17,15 +17,10 @@ class SwanLabConfig(BaseSettings):
     )
 
     # Domain settings
-    main_domain: str = Field(
+    host: str = Field(
         default=DEFAULT_SWANLAB_HOST,
         description="SwanLab website domain",
         validation_alias="SWANLAB_HOST",
-    )
-    api_domain: str = Field(
-        default=DEFAULT_SWANLAB_API_HOST,
-        description="SwanLab API domain",
-        validation_alias="SWANLAB_API_HOST",
     )
 
     # Request settings
@@ -35,12 +30,11 @@ class SwanLabConfig(BaseSettings):
         validation_alias="API_TIMEOUT",
     )
 
-    class Config:
-        """Pydantic configuration."""
-
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        extra = "ignore"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
 
 def get_config() -> SwanLabConfig:

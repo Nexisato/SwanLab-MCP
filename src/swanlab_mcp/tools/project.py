@@ -1,154 +1,175 @@
 """Project related MCP tools."""
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from mcp.server.fastmcp import FastMCP
 from mcp.types import ToolAnnotations
-from swanlab import OpenApi
+from swanlab import Api
 
-from ..models import Project
+from ..models import Project, Run
+from ._normalize import ensure_project_path, ensure_project_sort, ensure_username, to_plain_dict, to_plain_dict_list
 
 
 class ProjectTools:
     """SwanLab Project management tools."""
 
-    def __init__(self, api: OpenApi):
+    def __init__(self, api: Api):
         self.api = api
 
-    async def list_projects(self) -> List[Project]:
+    async def list_projects(
+        self,
+        path: Optional[str] = None,
+        sort: Optional[str] = None,
+        search: Optional[str] = None,
+        detail: bool = True,
+    ) -> List[Project]:
         """
-        List all projects in the workspace.
+        List all projects with optional filtering.
+
+        Args:
+            path: 空间路径（用户名），格式为 username，用于筛选指定空间下的所有项目
+            sort: 排序方式，可选：created_at（创建时间）、updated_at（更新时间）
+            search: 搜索关键词，模糊匹配项目名
+            detail: 是否返回项目详细信息（如描述、标签），默认为 True
 
         Returns:
-            List of Project objects containing project information including:
-            - cuid: Unique project identifier
-            - name: Project name
-            - description: Project description
-            - visibility: PUBLIC or PRIVATE
-            - createdAt/updatedAt: Timestamps
-            - group: Workspace information
-            - count: Statistics (experiments, contributors, etc.)
+            List of Project objects containing:
+            - name: 项目名
+            - path: 项目路径，格式为 username/project_name
+            - description: 项目描述
+            - labels: 项目标签
+            - visibility: PUBLIC 或 PRIVATE
+            - created_at/updated_at: 时间戳
+            - url: 项目URL
+            - count: 统计信息
         """
         try:
-            response = self.api.list_projects()
-            # SwanLab API returns Project objects, convert to our Pydantic models
-            projects = []
-            for item in response.data:
-                if hasattr(item, "model_dump"):
-                    # If it's already a Pydantic model
-                    projects.append(Project(**item.model_dump()))
-                elif hasattr(item, "__dict__"):
-                    # If it's a regular object with attributes
-                    projects.append(Project(**item.__dict__))
-                else:
-                    # If it's a dict
-                    projects.append(Project(**item))
-            return projects
+            kwargs = {"detail": detail}
+            if path:
+                kwargs["path"] = ensure_username(path)
+            if sort:
+                kwargs["sort"] = ensure_project_sort(sort)
+            if search:
+                kwargs["search"] = search
+
+            projects = self.api.projects(**kwargs)
+            return [Project(**proj_data) for proj_data in to_plain_dict_list(projects)]
         except Exception as e:
             raise RuntimeError(f"Failed to list projects: {str(e)}") from e
 
-    async def get_project(self, project: str) -> Project:
+    async def get_project(self, path: str) -> Project:
         """
-        Get detailed information about a specific project by filtering from list.
+        Get detailed information about a specific project.
 
         Args:
-            project: Project name or CUID
+            path: 项目路径，格式为 username/project_name
 
         Returns:
             Project object with detailed information
         """
         try:
-            # SwanLab API doesn't have get_project, so we filter from list_projects
-            projects = await self.list_projects()
-            for proj in projects:
-                if proj.cuid == project or proj.name == project:
-                    return proj
-            raise ValueError(f"Project '{project}' not found")
+            normalized_path = ensure_project_path(path)
+            proj = self.api.project(path=normalized_path)
+            return Project(**to_plain_dict(proj))
         except Exception as e:
-            raise RuntimeError(f"Failed to get project '{project}': {str(e)}") from e
+            raise RuntimeError(f"Failed to get project '{path}': {str(e)}") from e
 
-    async def delete_project(self, project: str) -> str:
+    async def list_runs_in_project(self, path: str) -> List[Run]:
         """
-        Delete a project from the workspace.
+        List all runs (experiments) in a specific project.
 
         Args:
-            project: Project name or CUID to delete
+            path: 项目路径，格式为 username/project_name
 
         Returns:
-            Success message
+            List of Run objects
         """
         try:
-            self.api.delete_project(project=project)
-            return f"Successfully deleted project '{project}'"
+            normalized_path = ensure_project_path(path)
+            proj = self.api.project(path=normalized_path)
+            runs = proj.runs()
+            return [Run(**run_data) for run_data in to_plain_dict_list(runs)]
         except Exception as e:
-            raise RuntimeError(f"Failed to delete project '{project}': {str(e)}") from e
+            raise RuntimeError(f"Failed to list runs in project '{path}': {str(e)}") from e
 
 
-def register_project_tools(mcp: FastMCP, api: OpenApi) -> None:
+def register_project_tools(mcp: FastMCP, api: Api) -> None:
     """
     Register project-related MCP tools.
 
     Args:
         mcp: FastMCP server instance
-        api: SwanLab OpenApi instance
+        api: SwanLab Api instance
     """
     project_tools = ProjectTools(api)
 
     @mcp.tool(
-        name="swanlab_list_projects_in_a_workspace",
-        description="List all projects in the workspace.",
+        name="swanlab_list_projects",
+        description="List all projects with optional filtering by workspace, sort, and search.",
         annotations=ToolAnnotations(
-            title="List all projects in the workspace.",
+            title="List all projects with filtering options.",
             readOnlyHint=True,
         ),
     )
-    async def list_projects() -> List[Dict[str, Any]]:
+    async def list_projects(
+        path: Optional[str] = None,
+        sort: Optional[str] = None,
+        search: Optional[str] = None,
+        detail: bool = True,
+    ) -> List[Dict[str, Any]]:
         """
-        List all projects in the workspace.
+        List all projects with optional filtering.
+
+        Args:
+            path: 空间用户名，用于筛选指定空间下的所有项目
+            sort: 排序方式，可选：created_at（创建时间）、updated_at（更新时间）
+            search: 搜索关键词，模糊匹配项目名
+            detail: 是否返回项目详细信息，默认为 True
 
         Returns:
-            List of projects with details including name, description, visibility, statistics, etc.
+            List of projects with details including name, path, description, visibility, etc.
         """
-        projects = await project_tools.list_projects()
-        return [project.model_dump() for project in projects]
+        projects = await project_tools.list_projects(path=path, sort=sort, search=search, detail=detail)
+        return [proj.model_dump() for proj in projects]
 
     @mcp.tool(
-        name="swanlab_get_a_specific_project",
+        name="swanlab_get_project",
         description="Get detailed information about a specific project.",
         annotations=ToolAnnotations(
             title="Get detailed information about a specific project.",
             readOnlyHint=True,
         ),
     )
-    async def get_project(project: str) -> Dict[str, Any]:
+    async def get_project(path: str) -> Dict[str, Any]:
         """
         Get detailed information about a specific project.
 
         Args:
-            project: Project name or CUID
+            path: 项目路径，格式为 username/project_name
 
         Returns:
             Project details including metadata and statistics.
         """
-        project_obj = await project_tools.get_project(project)
+        project_obj = await project_tools.get_project(path)
         return project_obj.model_dump()
 
     @mcp.tool(
-        name="swanlab_delete_a_project",
-        description="Delete a project from the workspace. Warning: This action cannot be undone.",
+        name="swanlab_list_runs_in_project",
+        description="List all runs (experiments) in a specific project.",
         annotations=ToolAnnotations(
-            title="Delete a project from the workspace. Warning: This action cannot be undone.",
-            readOnlyHint=False,
+            title="List all runs in a project.",
+            readOnlyHint=True,
         ),
     )
-    async def delete_project(project: str) -> str:
+    async def list_runs_in_project(path: str) -> List[Dict[str, Any]]:
         """
-        Delete a project from the workspace.
+        List all runs (experiments) in a specific project.
 
         Args:
-            project: Project name or CUID to delete
+            path: 项目路径，格式为 username/project_name
 
         Returns:
-            Success message confirming deletion.
+            List of runs with their details.
         """
-        return await project_tools.delete_project(project)
+        runs = await project_tools.list_runs_in_project(path)
+        return [run.model_dump() for run in runs]

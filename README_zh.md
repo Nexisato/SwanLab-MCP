@@ -2,7 +2,7 @@
 
 # SwanLab MCP Server
 
-[![][release-shield]][release-link] &nbsp; [![][pypi-version-shield]][pypi-version-shield-link] &nbsp; [![][pypi-downloads-shield]][pypi-downloads-shield-link] &nbsp; [![][license-shield]][license-shield-link]
+[![][pypi-version-shield]][pypi-version-shield-link]  &nbsp; [![][license-shield]][license-shield-link]
 
 
 </div>
@@ -14,10 +14,11 @@
 
 ### 核心功能
 
-- **工作空间管理** - 列出和管理用户可访问的工作空间
-- **项目管理** - 创建、获取、删除项目，以及列出项目信息
-- **实验管理** - 创建、获取、删除实验，检索实验指标和摘要
-- **API 集成** - 通过 SwanLab OpenAPI 提供完整的平台访问能力
+- **工作空间查询** - 列出可访问空间，并查看空间下项目
+- **项目查询** - 列出项目并查看指定项目详情与实验列表
+- **实验查询** - 统一返回 run 定义（`id`、`state`、`profile`、`user`）
+- **指标查询** - 统一返回指标表结构（`columns`、`rows`、`total`）
+- **API 集成** - 基于 SwanLab OpenAPI（`swanlab.Api`）提供只读访问
 
 ### 技术栈
 
@@ -104,12 +105,23 @@ python -m swanlab_mcp --version
 
 可用工具：
 - `swanlab_list_workspaces` - 列出工作空间
-- `swanlab_create_project` - 创建项目
+- `swanlab_get_workspace` - 获取工作空间详情
+- `swanlab_list_projects_in_workspace` - 列出空间中的项目
 - `swanlab_list_projects` - 列出项目
-- `swanlab_create_experiment` - 创建实验
-- `swanlab_list_experiments` - 列出实验
-- `swanlab_get_experiment` - 获取实验详情
-- `swanlab_delete_experiment` - 删除实验
+- `swanlab_get_project` - 获取项目详情
+- `swanlab_list_runs_in_project` - 列出项目中的实验
+- `swanlab_list_runs` - 列出实验（支持 `state`、`config.*` 过滤）
+- `swanlab_get_run` - 获取实验详情
+- `swanlab_get_run_config` - 获取实验配置
+- `swanlab_get_run_metadata` - 获取实验环境元信息
+- `swanlab_get_run_requirements` - 获取实验依赖信息
+- `swanlab_get_run_metrics` - 获取实验指标表
+
+资源定义：
+- **workspace**：项目集合，对应研发空间（`PERSON`/`TEAM`），唯一标识 `username`。
+- **project**：实验集合，唯一标识 `path = username/project_name`。
+- **run**：单次实验，唯一标识 `path = username/project_name/experiment_id`。
+- **metric**：实验指标时序表，统一返回 `{path, keys, x_axis, sample, columns, rows, total}`。
 
 ## 🛠️ 开发
 
@@ -149,8 +161,7 @@ bash scripts/install-hooks.sh
 
 MIT License
 
-[release-shield]: https://img.shields.io/github/v/release/Nexisato/SwanLab-MCP?logo=github&style=flat-square&labelColor=black&color=e0e0e0
-[release-link]: https://github.com/Nexisato/SwanLab-MCP/releases
+
 
 [license-shield]: https://img.shields.io/badge/license-MIT%202.0-e0e0e0?labelColor=black&style=flat-square
 [license-shield-link]: https://github.com/Nexisato/SwanLab-MCP/blob/main/LICENSE
@@ -158,5 +169,3 @@ MIT License
 [pypi-version-shield]: https://img.shields.io/pypi/v/swanlab-mcp?color=c4f042&labelColor=black&style=flat-square
 [pypi-version-shield-link]: https://pypi.org/project/swanlab-mcp/
 
-[pypi-downloads-shield]: https://img.shields.io/pypi/dm/swanlab-mcp?color=c4f042&labelColor=black&style=flat-square
-[pypi-downloads-shield-link]: https://pypi.org/project/swanlab-mcp/
