@@ -1,4 +1,7 @@
-"""Project related MCP tools."""
+"""Project related MCP tools.
+
+项目管理工具，用于获取项目信息和项目下的实验列表。
+"""
 
 from typing import Any, Dict, List, Optional
 
@@ -6,12 +9,15 @@ from mcp.server.fastmcp import FastMCP
 from mcp.types import ToolAnnotations
 from swanlab import Api
 
-from ..models import Project, Run
-from ._normalize import ensure_project_path, ensure_project_sort, ensure_username, to_plain_dict, to_plain_dict_list
+from ..models import Project
+from ..utils import to_plain_dict, validate_project_path
 
 
 class ProjectTools:
-    """SwanLab Project management tools."""
+    """SwanLab Project management tools.
+
+    项目是实验的集合，对应一个研发任务（如"图像分类"）。
+    """
 
     def __init__(self, api: Api):
         self.api = api
@@ -44,16 +50,16 @@ class ProjectTools:
             - count: 统计信息
         """
         try:
-            kwargs = {"detail": detail}
+            kwargs: Dict[str, Any] = {"detail": detail}
             if path:
-                kwargs["path"] = ensure_username(path)
+                kwargs["path"] = path.strip()
             if sort:
-                kwargs["sort"] = ensure_project_sort(sort)
+                kwargs["sort"] = sort.strip()
             if search:
-                kwargs["search"] = search
+                kwargs["search"] = search.strip()
 
             projects = self.api.projects(**kwargs)
-            return [Project(**proj_data) for proj_data in to_plain_dict_list(projects)]
+            return [Project(**to_plain_dict(proj)) for proj in projects]
         except Exception as e:
             raise RuntimeError(f"Failed to list projects: {str(e)}") from e
 
@@ -68,29 +74,11 @@ class ProjectTools:
             Project object with detailed information
         """
         try:
-            normalized_path = ensure_project_path(path)
+            normalized_path = validate_project_path(path)
             proj = self.api.project(path=normalized_path)
             return Project(**to_plain_dict(proj))
         except Exception as e:
             raise RuntimeError(f"Failed to get project '{path}': {str(e)}") from e
-
-    async def list_runs_in_project(self, path: str) -> List[Run]:
-        """
-        List all runs (experiments) in a specific project.
-
-        Args:
-            path: 项目路径，格式为 username/project_name
-
-        Returns:
-            List of Run objects
-        """
-        try:
-            normalized_path = ensure_project_path(path)
-            proj = self.api.project(path=normalized_path)
-            runs = proj.runs()
-            return [Run(**run_data) for run_data in to_plain_dict_list(runs)]
-        except Exception as e:
-            raise RuntimeError(f"Failed to list runs in project '{path}': {str(e)}") from e
 
 
 def register_project_tools(mcp: FastMCP, api: Api) -> None:
@@ -105,7 +93,8 @@ def register_project_tools(mcp: FastMCP, api: Api) -> None:
 
     @mcp.tool(
         name="swanlab_list_projects",
-        description="List all projects with optional filtering by workspace, sort, and search.",
+        description="List all projects with optional filtering by workspace, sort, and search. "
+        "项目是实验的集合，对应一个研发任务。",
         annotations=ToolAnnotations(
             title="List all projects with filtering options.",
             readOnlyHint=True,
@@ -128,13 +117,14 @@ def register_project_tools(mcp: FastMCP, api: Api) -> None:
 
         Returns:
             List of projects with details including name, path, description, visibility, etc.
+            返回项目列表，包含名称、路径、描述、可见性等信息。
         """
         projects = await project_tools.list_projects(path=path, sort=sort, search=search, detail=detail)
         return [proj.model_dump() for proj in projects]
 
     @mcp.tool(
         name="swanlab_get_project",
-        description="Get detailed information about a specific project.",
+        description="Get detailed information about a specific project. 获取指定项目的详细信息。",
         annotations=ToolAnnotations(
             title="Get detailed information about a specific project.",
             readOnlyHint=True,
@@ -149,27 +139,7 @@ def register_project_tools(mcp: FastMCP, api: Api) -> None:
 
         Returns:
             Project details including metadata and statistics.
+            返回项目详情，包含元数据和统计信息。
         """
         project_obj = await project_tools.get_project(path)
         return project_obj.model_dump()
-
-    @mcp.tool(
-        name="swanlab_list_runs_in_project",
-        description="List all runs (experiments) in a specific project.",
-        annotations=ToolAnnotations(
-            title="List all runs in a project.",
-            readOnlyHint=True,
-        ),
-    )
-    async def list_runs_in_project(path: str) -> List[Dict[str, Any]]:
-        """
-        List all runs (experiments) in a specific project.
-
-        Args:
-            path: 项目路径，格式为 username/project_name
-
-        Returns:
-            List of runs with their details.
-        """
-        runs = await project_tools.list_runs_in_project(path)
-        return [run.model_dump() for run in runs]
