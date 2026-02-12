@@ -2,22 +2,9 @@
 
 # SwanLab MCP Server
 
-[![][release-shield]][release-link] &nbsp; [![][pypi-version-shield]][pypi-version-shield-link] &nbsp; [![][pypi-downloads-shield]][pypi-downloads-shield-link] &nbsp; [![][license-shield]][license-shield-link]
+[![][pypi-version-shield]][pypi-version-shield-link] &nbsp;  &nbsp; [![][license-shield]][license-shield-link]
 
 </div>
-
-
-[release-shield]: https://img.shields.io/github/v/release/Nexisato/SwanLab-MCP?logo=github&style=flat-square&labelColor=black&color=e0e0e0
-[release-link]: https://github.com/Nexisato/SwanLab-MCP/releases
-
-[license-shield]: https://img.shields.io/badge/license-MIT%202.0-e0e0e0?labelColor=black&style=flat-square
-[license-shield-link]: https://github.com/Nexisato/SwanLab-MCP/blob/main/LICENSE
-
-[pypi-version-shield]: https://img.shields.io/pypi/v/swanlab-mcp?color=c4f042&labelColor=black&style=flat-square
-[pypi-version-shield-link]: https://pypi.org/project/swanlab-mcp/
-
-[pypi-downloads-shield]: https://img.shields.io/pypi/dm/swanlab-mcp?color=c4f042&labelColor=black&style=flat-square
-[pypi-downloads-shield-link]: https://pypi.org/project/swanlab-mcp/
 
 
 > A Model Context Protocol (MCP) server implementation for SwanLab, combining SwanLab-OpenAPI & FastMCP.
@@ -26,10 +13,11 @@
 
 ### Core Features
 
-- **Workspace Management** - List and manage user-accessible workspaces
-- **Project Management** - Create, retrieve, delete projects, and list project information
-- **Experiment Management** - Create, retrieve, delete experiments, and retrieve experiment metrics and summaries
-- **API Integration** - Provide complete platform access through SwanLab OpenAPI
+- **Workspace Queries** - List accessible workspaces and enumerate workspace projects
+- **Project Queries** - List projects and inspect a specific project with run summaries
+- **Run Queries** - Inspect runs with normalized fields (`id`, `state`, `profile`, `user`)
+- **Metric Queries** - Fetch metric tables with consistent `columns`, `rows`, and `total`
+- **API Integration** - Provide read-only access through SwanLab OpenAPI (`swanlab.Api`)
 
 ### Tech Stack
 
@@ -116,12 +104,23 @@ After configuration, restart Claude Desktop to interact with SwanLab via the MCP
 
 Available Tools:
 - `swanlab_list_workspaces` - List workspaces
-- `swanlab_create_project` - Create project
+- `swanlab_get_workspace` - Get workspace details
+- `swanlab_list_projects_in_workspace` - List projects in one workspace
 - `swanlab_list_projects` - List projects
-- `swanlab_create_experiment` - Create experiment
-- `swanlab_list_experiments` - List experiments
-- `swanlab_get_experiment` - Get experiment details
-- `swanlab_delete_experiment` - Delete experiment
+- `swanlab_get_project` - Get project details
+- `swanlab_list_runs_in_project` - List runs in one project
+- `swanlab_list_runs` - List runs with optional filters (`state`, `config.*`)
+- `swanlab_get_run` - Get run details
+- `swanlab_get_run_config` - Get run config
+- `swanlab_get_run_metadata` - Get run metadata
+- `swanlab_get_run_requirements` - Get run requirements
+- `swanlab_get_run_metrics` - Get run metric table
+
+Resource Definitions:
+- **workspace**: collection of projects (`PERSON` or `TEAM`) identified by `username`.
+- **project**: collection of runs identified by `path = username/project_name`.
+- **run**: single experiment identified by `path = username/project_name/experiment_id`.
+- **metric**: tabular run history returned as `{path, keys, x_axis, sample, columns, rows, total}`.
 
 ## 🛠️ Development
 
@@ -160,3 +159,9 @@ bash scripts/install-hooks.sh
 ## 📄 License
 
 MIT License
+
+[license-shield]: https://img.shields.io/badge/license-MIT%202.0-e0e0e0?labelColor=black&style=flat-square
+[license-shield-link]: https://github.com/Nexisato/SwanLab-MCP/blob/main/LICENSE
+
+[pypi-version-shield]: https://img.shields.io/pypi/v/swanlab-mcp?color=c4f042&labelColor=black&style=flat-square
+[pypi-version-shield-link]: https://pypi.org/project/swanlab-mcp/
