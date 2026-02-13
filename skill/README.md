@@ -20,53 +20,20 @@ export SWANLAB_HOST="https://swanlab.cn"
 
 获取 API 密钥：https://swanlab.cn/space/~/settings
 
-## 快速开始
+## 快速开始 
+以 `Claude Code` 为例 (其他 Coding Agent 配置方式同理)
 
 ```bash
-# 列出 workspaces
-python -m scripts.swanlab_cli workspaces list
+# 配置 skill（复制到 Claude Code 配置目录）
+cp -r swanlab-api-skill ~/.claude/skills/
 
-# 列出 projects
-python -m scripts.swanlab_cli projects list
-
-# 获取 run 信息
-python -m scripts.swanlab_cli runs get username/project/exp_id
-
-# 获取 run config
-python -m scripts.swanlab_cli runs config username/project/exp_id
-
-# 获取 run metadata（环境信息）
-python -m scripts.swanlab_cli runs metadata username/project/exp_id
-
-# 获取 run metrics（保存为 JSON 文件）
-python -m scripts.swanlab_cli runs metrics username/project/exp_id "loss,accuracy" -o metrics
+# 重启 Claude Code 使配置生效
 ```
 
-## 命令概览
+配置完成后，在 Claude Code 中使用 `/swanlab-api-skill` 命令调用。
 
-| 命令 | 说明 |
-|------|------|
-| `workspaces list` | 列出所有 workspaces |
-| `workspaces get [username]` | 获取 workspace 信息 |
-| `projects list [username]` | 列出 projects |
-| `projects get PATH` | 获取 project 信息 |
-| `runs list PROJECT_PATH` | 列出实验 runs |
-| `runs get RUN_PATH` | 获取 run 信息 |
-| `runs config RUN_PATH` | 获取 run 配置 |
-| `runs metadata RUN_PATH` | 获取 run 环境元信息 |
-| `runs requirements RUN_PATH` | 获取 run Python 依赖 |
-| `runs metrics RUN_PATH KEYS` | 获取 metrics（保存 JSON） |
 
-## 输出规则
 
-- 只有 `runs metrics` 命令会保存 JSON 文件（默认保存到 `.cache/` 目录）
-- 其他命令只输出到控制台
-
-## Path 格式
-
-- Project: `username/project_name` 或简写为 `project_name`
-- Run: `username/project_name/exp_id` 或简写为 `project_name/exp_id`
-
-## 详细文档
+## SKILL Doc
 
 See [swanlab-api-skill/SKILL.md](./swanlab-api-skill/SKILL.md)
