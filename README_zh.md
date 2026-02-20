@@ -2,7 +2,7 @@
 
 # SwanLab MCP Server
 
-[![][pypi-version-shield]][pypi-version-shield-link]  &nbsp; [![][license-shield]][license-shield-link]
+[![][github-shield]][github-shield-link]  &nbsp; [![][pypi-version-shield]][pypi-version-shield-link]  &nbsp; [![][license-shield]][license-shield-link]
 
 
 </div>
@@ -163,9 +163,12 @@ MIT License
 
 
 
-[license-shield]: https://img.shields.io/badge/license-MIT%202.0-e0e0e0?labelColor=black&style=flat-square
+[license-shield]: https://img.shields.io/badge/license-MIT%202.0-e0e0e0?labelColor=black&style=flat-square "License"
 [license-shield-link]: https://github.com/Nexisato/SwanLab-MCP/blob/main/LICENSE
 
-[pypi-version-shield]: https://img.shields.io/pypi/v/swanlab-mcp?color=c4f042&labelColor=black&style=flat-square
+[github-shield]: https://img.shields.io/badge/GitHub-black?logo=github&style=flat-square "GitHub"
+[github-shield-link]: https://github.com/Nexisato/SwanLab-MCP
+
+[pypi-version-shield]: https://img.shields.io/pypi/v/swanlab-mcp?color=c4f042&labelColor=black&style=flat-square "PyPI"
 [pypi-version-shield-link]: https://pypi.org/project/swanlab-mcp/
 
