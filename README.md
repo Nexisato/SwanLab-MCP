@@ -38,8 +38,8 @@ Add the following configuration to your relative mcp config list
     ...
     {
     "swanlab-mcp": {
-      "command": "uv",
-      "args": ["run", "swanlab_mcp", "--transport", "stdio"],
+      "command": "uvx",
+      "args": ["--from", "swanlab-mcp", "swanlab_mcp", "--transport", "stdio"],
       "env": {
         "SWANLAB_API_KEY": "your_api_key_here"
       }
@@ -51,7 +51,7 @@ Add the following configuration to your relative mcp config list
 For `Claude Code` Users, you can config like this:
 
 ```bash
-claude mcp add --env SWANLAB_API_KEY=<your_api_key> -- swanlab_mcp uv run swanlab_mcp --transport stdio
+claude mcp add --env SWANLAB_API_KEY=<your_api_key> -- swanlab_mcp uvx --from swanlab-mcp swanlab_mcp --transport stdio
 ```
 
 ### Prerequisites
@@ -114,6 +114,7 @@ Available Tools:
 - `swanlab_get_run_config` - Get run config
 - `swanlab_get_run_metadata` - Get run metadata
 - `swanlab_get_run_requirements` - Get run requirements
+- `swanlab_list_run_metric_keys` - List available metric keys for a run
 - `swanlab_get_run_metrics` - Get run metric table
 
 Resource Definitions:

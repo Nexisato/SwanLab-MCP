@@ -41,7 +41,7 @@
     {
     "swanlab-mcp": {
       "command": "uvx",
-      "args": ["swanlab_mcp", "--transport", "stdio"],
+      "args": ["--from", "swanlab-mcp", "swanlab_mcp", "--transport", "stdio"],
       "env": {
         "SWANLAB_API_KEY": "your_api_key_here"
       }
@@ -52,7 +52,7 @@
 对于 `Claude Code` 用户，可以一次性配置：
 
 ```bash
-claude mcp add --env SWANLAB_API_KEY=<your_api_key> -- swanlab_mcp uv run swanlab_mcp --transport stdio
+claude mcp add --env SWANLAB_API_KEY=<your_api_key> -- swanlab_mcp uvx --from swanlab-mcp swanlab_mcp --transport stdio
 ```
 
 ### 环境要求
@@ -115,6 +115,7 @@ python -m swanlab_mcp --version
 - `swanlab_get_run_config` - 获取实验配置
 - `swanlab_get_run_metadata` - 获取实验环境元信息
 - `swanlab_get_run_requirements` - 获取实验依赖信息
+- `swanlab_list_run_metric_keys` - 列出实验可用的指标键名
 - `swanlab_get_run_metrics` - 获取实验指标表
 
 资源定义：
