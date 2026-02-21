@@ -114,6 +114,35 @@ def cmd_runs_requirements(args):
         sys.exit(1)
 
 
+def cmd_runs_metric_keys(args):
+    """列出 run 的所有可用 metric keys。"""
+    api = get_api()
+    path = _resolve_run_path_lenient(api, args.path)
+
+    try:
+        run = api.run(path=path)
+        columns_resp, _ = run._client.get(f"/experiment/{run.id}/column", params={"all": True})
+        columns = columns_resp.get("list", [])
+
+        result = {
+            "path": path,
+            "keys": [
+                {
+                    "key": col.get("key", ""),
+                    "type": col.get("type", ""),
+                    "class": col.get("class", ""),
+                    "error": col.get("error"),
+                }
+                for col in columns
+            ],
+            "total": len(columns),
+        }
+        print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 def cmd_runs_metrics(args):
     """获取 run 的 metrics 数据。"""
     api = get_api()

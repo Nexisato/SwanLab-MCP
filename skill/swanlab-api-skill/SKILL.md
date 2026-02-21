@@ -96,7 +96,14 @@ chmod 600 ~/.swanlab/netrc
    - 了解实验使用的库版本
    - 用于环境复现
 
-5. **获取实验指标 Metrics**（按需，必须在获取元信息之后）：
+5. **列出可用指标键名 Metric Keys**（按需，在获取 Metrics 前使用）：
+   ```bash
+   python -m scripts.swanlab_cli runs metric-keys RUN_PATH
+   ```
+   - 列出实验的所有可用 metric keys 及其类型
+   - 在不知道指标名称时使用，获取后再调用 metrics 命令
+
+6. **获取实验指标 Metrics**（按需，必须在获取元信息之后）：
    ```bash
    python -m scripts.swanlab_cli runs metrics RUN_PATH "key1,key2" -o metrics
    ```
@@ -105,7 +112,7 @@ chmod 600 ~/.swanlab/netrc
    - ⚠️ **必须在获取 runs get 和 runs config 之后再执行**
 
 **分析流程建议**：
-- 单实验分析：先获取基础信息 + Config → 分析实验目的和配置 → 按需获取 Metrics 进行指标分析
+- 单实验分析：先获取基础信息 + Config → 分析实验目的和配置 → 用 metric-keys 发现指标 → 按需获取 Metrics 进行指标分析
 - 多实验对比：获取各实验 Config 找出变量差异 → 对比 Metrics 分析不同配置的效果
 - 实验复现：获取 Config + Metadata + Requirements → 完整还原实验环境
 
@@ -161,6 +168,9 @@ python -m scripts.swanlab_cli runs metadata RUN_PATH
 
 # 获取 run 的 requirements（Python 依赖）
 python -m scripts.swanlab_cli runs requirements RUN_PATH
+
+# 列出 run 的所有可用 metric keys
+python -m scripts.swanlab_cli runs metric-keys RUN_PATH
 
 # 获取 run 的 metrics（唯一保存 JSON 文件的命令）
 python -m scripts.swanlab_cli runs metrics RUN_PATH KEYS
@@ -241,6 +251,16 @@ python scripts/swanlab_cli.py runs requirements myproject/exp_abc123
 
 # 重定向保存（如果需要）
 python scripts/swanlab_cli.py runs config myproject/exp_abc123 > ./config.json
+```
+
+### 列出可用 Metric Keys
+
+```bash
+# 列出 run 的所有可用 metric keys
+python scripts/swanlab_cli.py runs metric-keys myproject/exp_abc123
+
+# 使用完整 path
+python scripts/swanlab_cli.py runs metric-keys username/myproject/exp_abc123
 ```
 
 ### 获取 Metrics（唯一保存文件的命令）
@@ -335,6 +355,19 @@ python scripts/swanlab_cli.py runs metrics myproject/exp_abc123 "loss,accuracy" 
     "is_self": true,
     "username": "myuser"
   }
+}
+```
+
+### Metric Keys
+
+```json
+{
+  "path": "myuser/myproject/exp_abc123",
+  "keys": [
+    {"key": "loss", "type": "SCALAR", "class": "STABLE", "error": null},
+    {"key": "accuracy", "type": "SCALAR", "class": "STABLE", "error": null}
+  ],
+  "total": 2
 }
 ```
 
