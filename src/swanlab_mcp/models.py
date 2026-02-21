@@ -162,6 +162,38 @@ class Run(BaseModel):
         return None
 
 
+class MetricKey(BaseModel):
+    """Single metric key information.
+
+    单个指标键信息，包含指标名称、类型和分类。
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    key: str = Field(default="", description="指标名称，如 loss、accuracy")
+    type: str = Field(default="", description="指标数据类型，如 SCALAR")
+    cls: str = Field(default="", description="指标分类，如 STABLE、SYSTEM、MEDIA")
+    error: Optional[Dict[str, Any]] = Field(default=None, description="指标错误信息，正常时为 None")
+
+    @field_validator("key", "type", "cls", mode="before")
+    @classmethod
+    def _normalize_str_fields(cls, value: Any) -> str:
+        return _normalize_to_str(value)
+
+
+class MetricKeyList(BaseModel):
+    """List of metric keys for a run.
+
+    实验的指标键列表。
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    path: str = Field(default="", description="实验路径，格式为 username/project_name/experiment_id")
+    keys: List[MetricKey] = Field(default_factory=list, description="指标键列表")
+    total: int = Field(default=0, description="指标键总数")
+
+
 class MetricTable(BaseModel):
     """Run metric query result.
 

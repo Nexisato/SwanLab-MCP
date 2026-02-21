@@ -9,7 +9,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.types import ToolAnnotations
 from swanlab import Api
 
-from ..models import MetricTable
+from ..models import MetricKey, MetricKeyList, MetricTable
 from ..utils import validate_run_path
 
 
@@ -21,6 +21,40 @@ class MetricTools:
 
     def __init__(self, api: Api):
         self.api = api
+
+    async def list_run_metric_keys(self, path: str) -> MetricKeyList:
+        """
+        List all available metric keys for a run (experiment).
+
+        Args:
+            path: 实验路径，格式为 username/project_name/experiment_id
+
+        Returns:
+            MetricKeyList containing all metric keys with their types and classes.
+        """
+        try:
+            normalized_path = validate_run_path(path)
+            run = self.api.run(path=normalized_path)
+            columns_resp, _ = run._client.get(f"/experiment/{run.id}/column", params={"all": True})
+            columns = columns_resp.get("list", [])
+
+            metric_keys = [
+                MetricKey(
+                    key=col.get("key", ""),
+                    type=col.get("type", ""),
+                    cls=col.get("class", ""),
+                    error=col.get("error"),
+                )
+                for col in columns
+            ]
+
+            return MetricKeyList(
+                path=normalized_path,
+                keys=metric_keys,
+                total=len(metric_keys),
+            )
+        except Exception as e:
+            raise RuntimeError(f"Failed to list metric keys for run '{path}': {str(e)}") from e
 
     async def get_run_metrics(
         self,
@@ -87,6 +121,30 @@ def register_metric_tools(mcp: FastMCP, api: Api) -> None:
         api: SwanLab Api instance
     """
     metric_tools = MetricTools(api)
+
+    @mcp.tool(
+        name="swanlab_list_run_metric_keys",
+        description="List all available metric keys for a run (experiment). "
+        "Use this to discover metric names before calling swanlab_get_run_metrics. "
+        "列出实验的所有可用指标键名，在调用 swanlab_get_run_metrics 前使用此工具发现指标名。",
+        annotations=ToolAnnotations(
+            title="List metric keys for a run.",
+            readOnlyHint=True,
+        ),
+    )
+    async def list_run_metric_keys(path: str) -> Dict[str, Any]:
+        """
+        List all available metric keys for a run (experiment).
+
+        Args:
+            path: 实验路径，格式为 username/project_name/experiment_id
+
+        Returns:
+            MetricKeyList with all available metric keys, their types (e.g. SCALAR) and classes (e.g. STABLE, SYSTEM).
+            返回指标键列表，包含指标名、数据类型和分类信息。
+        """
+        metric_key_list = await metric_tools.list_run_metric_keys(path)
+        return metric_key_list.model_dump()
 
     @mcp.tool(
         name="swanlab_get_run_metrics",

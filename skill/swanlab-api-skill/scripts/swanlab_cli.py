@@ -21,7 +21,15 @@ import argparse
 import sys
 
 from .projects import cmd_projects_get, cmd_projects_list, cmd_projects_runs
-from .runs import cmd_runs_config, cmd_runs_get, cmd_runs_list, cmd_runs_metadata, cmd_runs_metrics, cmd_runs_requirements
+from .runs import (
+    cmd_runs_config,
+    cmd_runs_get,
+    cmd_runs_list,
+    cmd_runs_metadata,
+    cmd_runs_metric_keys,
+    cmd_runs_metrics,
+    cmd_runs_requirements,
+)
 from .workspaces import cmd_workspaces_get, cmd_workspaces_list, cmd_workspaces_projects
 
 
@@ -105,6 +113,9 @@ def main():
     runs_req = runs_sub.add_parser("requirements", help="获取 run 的 requirements")
     runs_req.add_argument("path", help="Run path")
 
+    runs_metric_keys = runs_sub.add_parser("metric-keys", help="列出 run 的所有可用 metric keys")
+    runs_metric_keys.add_argument("path", help="Run path")
+
     runs_metrics = runs_sub.add_parser("metrics", help="获取 run 的 metrics（唯一保存文件的命令）")
     runs_metrics.add_argument("path", help="Run path")
     runs_metrics.add_argument("keys", help="指标名称，逗号分隔（如 loss,accuracy）")
@@ -132,6 +143,7 @@ def main():
         ("runs", "config"): cmd_runs_config,
         ("runs", "metadata"): cmd_runs_metadata,
         ("runs", "requirements"): cmd_runs_requirements,
+        ("runs", "metric-keys"): cmd_runs_metric_keys,
         ("runs", "metrics"): cmd_runs_metrics,
     }
 
