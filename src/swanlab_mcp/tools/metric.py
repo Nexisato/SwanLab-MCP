@@ -149,7 +149,8 @@ def register_metric_tools(mcp: FastMCP, api: Api) -> None:
     @mcp.tool(
         name="swanlab_get_run_metrics",
         description="Get metric data for a run (experiment). Returns a list of metric records. "
-        "获取实验的指标数据，返回指标记录列表。",
+        "You SHOULD call `swanlab_list_run_metric_keys` first to discover available metric keys. "
+        "获取实验的指标数据，返回指标记录列表。你应该先调用 `swanlab_list_run_metric_keys` 发现可用指标键名。",
         annotations=ToolAnnotations(
             title="Get metric data for a run.",
             readOnlyHint=True,
