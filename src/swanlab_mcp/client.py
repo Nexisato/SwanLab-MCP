@@ -117,7 +117,7 @@ class SwanLabClient:
         """
         normalized = validate_run_path(path)
         data = self.fetch_run(path)
-        return Experiment(self._ctx, path=normalized, data=data)
+        return Experiment(self._ctx, path=normalized, data=data)  # type: ignore
 
     def web_url(self, suffix: str) -> str:
         """Build a frontend web page URL from the web host."""

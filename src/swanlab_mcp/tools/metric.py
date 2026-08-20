@@ -120,7 +120,8 @@ class MetricTools:
                 )
                 if not isinstance(page, dict):
                     raise RuntimeError(f"unexpected response type {type(page).__name__}.")
-                keys.extend(str(key) for key in page.get("keys", []))
+                # 后端对"无数据"可能返回显式 null（dict.get 默认值不生效），兜底为空列表
+                keys.extend(str(key) for key in (page.get("keys") or []))
                 if not page.get("hasMore", False) or not page.get("nextCursor", ""):
                     break
                 cursor = str(page["nextCursor"])
@@ -323,8 +324,9 @@ class MetricTools:
             normalized_level = _normalize_enum(level, _VALID_LOG_LEVELS, "level")
             experiment = self.client.experiment(normalized_path)
             result = experiment.logs(offset=offset, level=normalized_level, ignore_timestamp=ignore_timestamp)  # type: ignore[arg-type]
-            logs = result.get("logs", []) if isinstance(result, dict) else []
-            count = result.get("count", len(logs)) if isinstance(result, dict) else len(logs)
+            # logs/count 对"无数据"可能为显式 null（dict.get 默认值不生效），兜底处理
+            logs = (result.get("logs") or []) if isinstance(result, dict) else []
+            count = (result.get("count") or len(logs)) if isinstance(result, dict) else len(logs)
             return LogData(
                 path=normalized_path,
                 offset=offset,
