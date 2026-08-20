@@ -3,113 +3,174 @@
 实验管理工具，用于获取实验信息、配置、元数据和依赖。
 """
 
-from collections.abc import Mapping
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-import pandas as pd
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 from mcp.types import ToolAnnotations
-from swanlab import Api
+from swanlab.api.utils import validate_filter, validate_update_active
 
-from ..models import Run
-from ..utils import to_plain_dict, validate_project_path, validate_run_path
+from ..client import SwanLabClient
+from ..constants import VALID_PAGE_SIZES
+from ..models import Run, RunList
+from ..utils import validate_page, validate_project_path, validate_run_path
 
 
-def _profile_section(run_obj: Any, section: str) -> Any:
-    """Extract a section from run profile.
+def _flatten_runs(data: Any) -> List[Dict[str, Any]]:
+    """Flatten grouped experiment data (dict of lists) into a flat list."""
+    if isinstance(data, list):
+        return [item for item in data if isinstance(item, dict)]
+    if isinstance(data, dict):
+        return [item for _, value in data.items() for item in _flatten_runs(value)]
+    return []
 
-    从实验 profile 中提取指定部分（config、metadata、requirements）。
-    """
-    profile = getattr(run_obj, "profile", None)
-    if profile is None:
-        run_data = to_plain_dict(run_obj)
-        return run_data.get("profile", {}).get(section)
-    if isinstance(profile, Mapping):
-        return profile.get(section)
-    return getattr(profile, section, None)
+
+def _build_run_list(path: str, data: Dict[str, Any], page: int, size: int) -> RunList:
+    """Build a RunList envelope from the raw paginated/filter response body."""
+    runs = []
+    for item in data.get("list", []):
+        if not isinstance(item, dict):
+            continue
+        run = Run(**item)
+        if not run.path:
+            run.path = f"{path}/{run.run_id}"
+        runs.append(run)
+    return RunList(
+        path=path,
+        page=data.get("page", page),
+        size=data.get("size", size),
+        total=data.get("total", len(runs)),
+        pages=data.get("pages", 0),
+        runs=runs,
+    )
 
 
 class RunTools:
     """SwanLab Run (Experiment) management tools.
 
     实验是单次训练/推理任务，包含指标、配置、日志等数据。
+    对应 OpenAPI 端点 GET /project/{path}/runs（分页）、POST /project/{path}/runs/shows（筛选）
+    与 GET /project/{path}/runs/{run_id}（详情）。
     """
 
-    def __init__(self, api: Api):
-        self.api = api
+    def __init__(self, client: SwanLabClient):
+        self.client = client
 
     async def list_runs(
         self,
         path: str,
-        filters: Optional[Dict[str, Any]] = None,
-    ) -> List[Run]:
+        page: int = 1,
+        page_size: int = 20,
+    ) -> RunList:
         """
-        List all runs (experiments) in a project with optional filtering.
+        List runs (experiments) under a project, paginated.
 
         Args:
             path: 项目路径，格式为 username/project_name
-            filters: 筛选条件，比如 {'state': 'FINISHED', 'config.batch_size': '64'}
-                     支持的筛选条件：
-                     - state: 实验状态，可选：FINISHED、RUNNING、CRASHED、ABORTED
-                     - config.<配置名>: 配置名，需要 config. 前缀
+            page: 页码，>= 1
+            page_size: 每页条数，必须是 10/12/15/20/24/27/50/100 之一
 
         Returns:
-            List of Run objects containing:
-            - id: 实验ID
-            - name: 实验名
-            - path: 实验路径
-            - description: 实验描述
-            - state: FINISHED、RUNNING、CRASHED、ABORTED
-            - group: 实验组
-            - labels: 实验标签
-            - created_at/finished_at: 时间戳
-            - url: 实验URL
-            - job_type: 任务类型
-            - show: 显示状态
-            - user: 实验用户信息
-            - profile: 实验配置信息
+            RunList object with pagination info and run list
         """
         try:
-            kwargs: Dict[str, Any] = {"path": validate_project_path(path)}
-            if filters:
-                kwargs["filters"] = filters
-
-            runs = self.api.runs(**kwargs)
-            return [Run(**to_plain_dict(run)) for run in runs]
+            normalized_path = validate_project_path(path)
+            validate_page(page, page_size, VALID_PAGE_SIZES)
+            data = self.client.get_json(
+                f"/project/{normalized_path}/runs",
+                params={"page": page, "size": page_size},
+            )
+            if not isinstance(data, dict):
+                raise RuntimeError(f"unexpected response type {type(data).__name__}.")
+            return _build_run_list(normalized_path, data, page, page_size)
         except Exception as e:
             raise RuntimeError(f"Failed to list runs for project '{path}': {str(e)}") from e
+
+    async def filter_runs(
+        self,
+        path: str,
+        filters: List[Dict[str, Any]],
+    ) -> RunList:
+        """
+        Filter runs (experiments) under a project by a structured query.
+
+        Args:
+            path: 项目路径，格式为 username/project_name
+            filters: 筛选条件列表，每项格式为 {"key": ..., "type": ..., "op": ..., "value": [...]}
+                     - type: STABLE（实验属性）、CONFIG（超参配置）、SCALAR（指标值）
+                     - key:  STABLE 时可选 state/name 等；CONFIG 时为配置名；SCALAR 时为指标名
+                     - op: EQ、NEQ、GTE、LTE、IN、NOT IN、CONTAIN
+                     - value: 值列表，如 ["FINISHED"]
+                     示例：[{"key": "state", "type": "STABLE", "op": "EQ", "value": ["FINISHED"]}]
+
+        Returns:
+            RunList object with matching runs (no pagination)
+        """
+        try:
+            normalized_path = validate_project_path(path)
+            if not isinstance(filters, list) or not filters:
+                raise ValueError("`filters` must be a non-empty list of filter objects.")
+            data = self.client.post_json(
+                f"/project/{normalized_path}/runs/shows",
+                data={
+                    "filters": validate_update_active(filters, validate_filter, label="filters"),
+                    "groups": [],
+                    "sorts": [],
+                },
+            )
+            runs = _flatten_runs(data)
+            return _build_run_list(normalized_path, {"list": runs, "total": len(runs)}, 1, len(runs))
+        except Exception as e:
+            raise RuntimeError(f"Failed to filter runs for project '{path}': {str(e)}") from e
 
     async def get_run(self, path: str) -> Run:
         """
         Get detailed information about a specific run (experiment).
 
         Args:
-            path: 实验路径，格式为 username/project_name/experiment_id
+            path: 实验路径，格式为 username/project_name/run_id
 
         Returns:
             Run object with detailed information including profile data
         """
         try:
             normalized_path = validate_run_path(path)
-            run = self.api.run(path=normalized_path)
-            return Run(**to_plain_dict(run))
+            proj_path, run_slug = normalized_path.rsplit("/", 1)
+            data = self.client.fetch_run(normalized_path)
+            # 详情接口可能不带 profile，按 cuid 再查一次即可拿到（与 SDK Experiment.profile 行为一致）
+            if "profile" not in data:
+                cuid = str(data.get("cuid") or "")
+                if cuid:
+                    detail = self.client.get_json(f"/project/{proj_path}/runs/{cuid}")
+                    if isinstance(detail, dict):
+                        data = detail
+            run_model = Run(**data)
+            if not run_model.path:
+                run_model.path = normalized_path
+            if not run_model.url:
+                url_ref = str(data.get("slug") or run_slug or run_model.run_id)
+                run_model.url = self.client.web_url(f"@{proj_path}/runs/{url_ref}/chart")
+            return run_model
         except Exception as e:
             raise RuntimeError(f"Failed to get run '{path}': {str(e)}") from e
+
+    async def _get_run_profile(self, path: str) -> Dict[str, Any]:
+        """Fetch the profile section dict of a run."""
+        run_model = await self.get_run(path)
+        return run_model.profile.model_dump() if run_model.profile else {}
 
     async def get_run_config(self, path: str) -> Dict[str, Any]:
         """
         Get configuration for a run (experiment).
 
         Args:
-            path: 实验路径，格式为 username/project_name/experiment_id
+            path: 实验路径，格式为 username/project_name/run_id
 
         Returns:
             Configuration dictionary
         """
         try:
-            normalized_path = validate_run_path(path)
-            run = self.api.run(path=normalized_path)
-            config = _profile_section(run, "config")
+            profile = await self._get_run_profile(path)
+            config = profile.get("config")
             return config if isinstance(config, dict) else {}
         except Exception as e:
             raise RuntimeError(f"Failed to get config for run '{path}': {str(e)}") from e
@@ -119,15 +180,14 @@ class RunTools:
         Get metadata for a run (experiment).
 
         Args:
-            path: 实验路径，格式为 username/project_name/experiment_id
+            path: 实验路径，格式为 username/project_name/run_id
 
         Returns:
             Metadata dictionary containing Python版本、硬件信息等
         """
         try:
-            normalized_path = validate_run_path(path)
-            run = self.api.run(path=normalized_path)
-            metadata = _profile_section(run, "metadata")
+            profile = await self._get_run_profile(path)
+            metadata = profile.get("metadata")
             return metadata if isinstance(metadata, dict) else {}
         except Exception as e:
             raise RuntimeError(f"Failed to get metadata for run '{path}': {str(e)}") from e
@@ -137,15 +197,14 @@ class RunTools:
         Get Python requirements for a run (experiment).
 
         Args:
-            path: 实验路径，格式为 username/project_name/experiment_id
+            path: 实验路径，格式为 username/project_name/run_id
 
         Returns:
             List of Python package requirements
         """
         try:
-            normalized_path = validate_run_path(path)
-            run = self.api.run(path=normalized_path)
-            requirements = _profile_section(run, "requirements")
+            profile = await self._get_run_profile(path)
+            requirements = profile.get("requirements")
             if requirements is None:
                 return []
             if isinstance(requirements, list):
@@ -155,60 +214,85 @@ class RunTools:
             raise RuntimeError(f"Failed to get requirements for run '{path}': {str(e)}") from e
 
 
-def register_run_tools(mcp: FastMCP, api: Api) -> None:
+def register_run_tools(mcp: FastMCP, client: SwanLabClient) -> None:
     """
     Register run-related MCP tools.
 
     Args:
         mcp: FastMCP server instance
-        api: SwanLab Api instance
+        client: SwanLab OpenAPI client
     """
-    run_tools = RunTools(api)
+    run_tools = RunTools(client)
 
     @mcp.tool(
         name="swanlab_list_runs",
-        description="List all runs (experiments) in a project with optional filtering. "
+        title="List runs under a project.",
+        description="List runs (experiments) under a project, paginated. "
         "实验是单次训练/推理任务，包含指标、配置、日志等数据。",
-        annotations=ToolAnnotations(
-            title="List all runs in a project.",
-            readOnlyHint=True,
-        ),
+        annotations=ToolAnnotations(readOnlyHint=True),
     )
     async def list_runs(
         path: str,
-        filters: Optional[Dict[str, Any]] = None,
-    ) -> List[Dict[str, Any]]:
+        page: int = 1,
+        page_size: int = 20,
+    ) -> Dict[str, Any]:
         """
-        List all runs (experiments) in a project with optional filtering.
+        List runs (experiments) under a project, paginated.
 
         Args:
             path: 项目路径，格式为 username/project_name
-            filters: 筛选条件，比如 {'state': 'FINISHED', 'config.batch_size': '64'}
-                     支持的筛选条件：
-                     - state: 实验状态，可选：FINISHED、RUNNING、CRASHED、ABORTED
-                     - config.<配置名>: 配置名，需要 config. 前缀
+            page: 页码，>= 1，默认 1
+            page_size: 每页条数，必须是 10/12/15/20/24/27/50/100 之一，默认 20
 
         Returns:
-            List of runs with their names, states, descriptions, and metadata.
-            返回实验列表，包含名称、状态、描述和元数据。
+            Paginated run list with names, states, descriptions, and metadata.
+            返回分页的实验列表，包含名称、状态、描述和元数据。
         """
-        runs = await run_tools.list_runs(path=path, filters=filters)
-        return [run.model_dump() for run in runs]
+        run_list = await run_tools.list_runs(path=path, page=page, page_size=page_size)
+        return run_list.model_dump()
+
+    @mcp.tool(
+        name="swanlab_filter_runs",
+        title="Filter runs under a project with a structured query.",
+        description="Filter runs (experiments) under a project by a structured query. "
+        "按结构化条件筛选项目下的实验，支持按实验属性(state等)、超参配置(config.xxx)和指标值筛选。",
+        annotations=ToolAnnotations(readOnlyHint=True),
+    )
+    async def filter_runs(
+        path: str,
+        filters: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """
+        Filter runs (experiments) under a project by a structured query.
+
+        Args:
+            path: 项目路径，格式为 username/project_name
+            filters: 筛选条件列表，每项格式为 {"key": ..., "type": ..., "op": ..., "value": [...]}
+                     - type: STABLE（实验属性）、CONFIG（超参配置）、SCALAR（指标值）
+                     - key:  STABLE 时如 state/name；CONFIG 时为配置名（如 batch_size）；SCALAR 时为指标名
+                     - op: EQ、NEQ、GTE、LTE、IN、NOT IN、CONTAIN
+                     - value: 值列表，如 ["FINISHED"] 或 ["64"]
+                     示例：[{"key": "state", "type": "STABLE", "op": "EQ", "value": ["FINISHED"]}]
+
+        Returns:
+            Matching runs without pagination.
+            返回符合条件的实验列表（不分页）。
+        """
+        run_list = await run_tools.filter_runs(path=path, filters=filters)
+        return run_list.model_dump()
 
     @mcp.tool(
         name="swanlab_get_run",
+        title="Get detailed information about a specific run.",
         description="Get detailed information about a specific run (experiment). 获取指定实验的详细信息。",
-        annotations=ToolAnnotations(
-            title="Get detailed information about a specific run.",
-            readOnlyHint=True,
-        ),
+        annotations=ToolAnnotations(readOnlyHint=True),
     )
     async def get_run(path: str) -> Dict[str, Any]:
         """
         Get detailed information about a specific run (experiment).
 
         Args:
-            path: 实验路径，格式为 username/project_name/experiment_id
+            path: 实验路径，格式为 username/project_name/run_id
 
         Returns:
             Run details including profile data, configuration, and metadata.
@@ -219,18 +303,16 @@ def register_run_tools(mcp: FastMCP, api: Api) -> None:
 
     @mcp.tool(
         name="swanlab_get_run_config",
+        title="Get run configuration.",
         description="Get the configuration (config) for a specific run (experiment). 获取实验的配置信息。",
-        annotations=ToolAnnotations(
-            title="Get run configuration.",
-            readOnlyHint=True,
-        ),
+        annotations=ToolAnnotations(readOnlyHint=True),
     )
     async def get_run_config(path: str) -> Dict[str, Any]:
         """
         Get the configuration for a specific run (experiment).
 
         Args:
-            path: 实验路径，格式为 username/project_name/experiment_id
+            path: 实验路径，格式为 username/project_name/run_id
 
         Returns:
             Configuration dictionary containing hyperparameters and settings.
@@ -240,19 +322,17 @@ def register_run_tools(mcp: FastMCP, api: Api) -> None:
 
     @mcp.tool(
         name="swanlab_get_run_metadata",
+        title="Get run metadata.",
         description="Get the environment metadata for a specific run (experiment). "
         "获取实验的环境元数据，如 Python 版本、硬件信息。",
-        annotations=ToolAnnotations(
-            title="Get run metadata.",
-            readOnlyHint=True,
-        ),
+        annotations=ToolAnnotations(readOnlyHint=True),
     )
     async def get_run_metadata(path: str) -> Dict[str, Any]:
         """
         Get the environment metadata for a specific run (experiment).
 
         Args:
-            path: 实验路径，格式为 username/project_name/experiment_id
+            path: 实验路径，格式为 username/project_name/run_id
 
         Returns:
             Metadata dictionary containing Python version, hardware info, etc.
@@ -262,18 +342,16 @@ def register_run_tools(mcp: FastMCP, api: Api) -> None:
 
     @mcp.tool(
         name="swanlab_get_run_requirements",
+        title="Get run requirements.",
         description="Get the Python requirements for a specific run (experiment). 获取实验的 Python 依赖信息。",
-        annotations=ToolAnnotations(
-            title="Get run requirements.",
-            readOnlyHint=True,
-        ),
+        annotations=ToolAnnotations(readOnlyHint=True),
     )
     async def get_run_requirements(path: str) -> List[str]:
         """
         Get the Python requirements for a specific run (experiment).
 
         Args:
-            path: 实验路径，格式为 username/project_name/experiment_id
+            path: 实验路径，格式为 username/project_name/run_id
 
         Returns:
             List of Python package requirements.

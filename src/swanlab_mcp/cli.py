@@ -43,13 +43,14 @@ def main() -> None:
     # Create and configure the MCP server
     try:
         mcp = create_mcp_server()
-        print(f"MCP server created successfully on transport {args.transport}")
+        # stdout 仅允许 JSON-RPC 协议流（stdio transport），日志一律走 stderr
+        print(f"MCP server created successfully on transport {args.transport}", file=sys.stderr)
     except Exception as e:
         print(f"Error creating MCP server: {e}", file=sys.stderr)
         sys.exit(1)
 
     try:
-        print(f"Starting MCP server on transport {args.transport}...")
+        print(f"Starting MCP server on transport {args.transport}...", file=sys.stderr)
         mcp.run(transport=args.transport)
     except KeyboardInterrupt:
         print(f"\nShutting down {get_server_name()}...", file=sys.stderr)

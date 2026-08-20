@@ -1,33 +1,32 @@
 """Configuration management for SwanLab MCP Server."""
 
+from typing import Optional
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from .constants import DEFAULT_API_TIMEOUT_SECONDS, DEFAULT_SWANLAB_HOST
-
 
 class SwanLabConfig(BaseSettings):
-    """SwanLab MCP Server configuration settings."""
+    """SwanLab MCP Server configuration settings.
+
+    凭证解析优先级（由 swanlab >= 0.9.0 SDK 处理）：
+    1. 此处的 SWANLAB_API_KEY / SWANLAB_HOST 环境变量
+    2. 进程内登录态（swanlab.login）
+    3. Settings 配置（.netrc 文件、swanlab.yaml、SWANLAB_ 前缀环境变量等）
+    """
 
     # Authentication settings
-    api_key: str | None = Field(
+    api_key: Optional[str] = Field(
         default=None,
-        description="SwanLab API key for authentication",
+        description="SwanLab API key for authentication; falls back to `swanlab login` credentials when unset",
         validation_alias="SWANLAB_API_KEY",
     )
 
     # Domain settings
-    host: str = Field(
-        default=DEFAULT_SWANLAB_HOST,
-        description="SwanLab website domain",
+    host: Optional[str] = Field(
+        default=None,
+        description="SwanLab server host URL; uses the logged-in host when unset",
         validation_alias="SWANLAB_HOST",
-    )
-
-    # Request settings
-    timeout: int = Field(
-        default=DEFAULT_API_TIMEOUT_SECONDS,
-        description="API request timeout in seconds",
-        validation_alias="API_TIMEOUT",
     )
 
     model_config = SettingsConfigDict(
@@ -43,11 +42,5 @@ def get_config() -> SwanLabConfig:
 
     Returns:
         SwanLabConfig instance with settings loaded from environment.
-
-    Raises:
-        ValueError: If required settings (like api_key) are not set.
     """
-    config = SwanLabConfig()
-    if not config.api_key:
-        raise ValueError("SWANLAB_API_KEY environment variable must be set")
-    return config
+    return SwanLabConfig()

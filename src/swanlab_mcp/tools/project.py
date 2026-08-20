@@ -3,65 +3,75 @@
 项目管理工具，用于获取项目信息和项目下的实验列表。
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 from mcp.types import ToolAnnotations
-from swanlab import Api
 
-from ..models import Project
-from ..utils import to_plain_dict, validate_project_path
+from ..client import SwanLabClient
+from ..constants import VALID_PAGE_SIZES
+from ..models import Project, ProjectList
+from ..utils import validate_page, validate_project_path, validate_workspace_name
 
 
 class ProjectTools:
     """SwanLab Project management tools.
 
     项目是实验的集合，对应一个研发任务（如"图像分类"）。
+    对应 OpenAPI 端点 GET /project/{username}（分页列表）与 GET /project/{path}（详情）。
     """
 
-    def __init__(self, api: Api):
-        self.api = api
+    def __init__(self, client: SwanLabClient):
+        self.client = client
 
     async def list_projects(
         self,
-        path: Optional[str] = None,
-        sort: Optional[str] = None,
+        workspace: str,
+        page: int = 1,
+        page_size: int = 20,
         search: Optional[str] = None,
-        detail: bool = True,
-    ) -> List[Project]:
+        sort: Optional[str] = None,
+    ) -> ProjectList:
         """
-        List all projects with optional filtering.
+        List projects under a workspace, paginated.
 
         Args:
-            path: 空间路径（用户名），格式为 username，用于筛选指定空间下的所有项目
-            sort: 排序方式，可选：created_at（创建时间）、updated_at（更新时间）
+            workspace: 工作空间用户名，用于筛选指定空间下的所有项目
+            page: 页码，>= 1
+            page_size: 每页条数，必须是 10/12/15/20/24/27/50/100 之一
             search: 搜索关键词，模糊匹配项目名
-            detail: 是否返回项目详细信息（如描述、标签），默认为 True
+            sort: 排序字段，如 created_at（创建时间）、updated_at（更新时间）
 
         Returns:
-            List of Project objects containing:
-            - name: 项目名
-            - path: 项目路径，格式为 username/project_name
-            - description: 项目描述
-            - labels: 项目标签
-            - visibility: PUBLIC 或 PRIVATE
-            - created_at/updated_at: 时间戳
-            - url: 项目URL
-            - count: 统计信息
+            ProjectList object with pagination info and project list
         """
         try:
-            kwargs: Dict[str, Any] = {"detail": detail}
-            if path:
-                kwargs["path"] = path.strip()
-            if sort:
-                kwargs["sort"] = sort.strip()
-            if search:
-                kwargs["search"] = search.strip()
-
-            projects = self.api.projects(**kwargs)
-            return [Project(**to_plain_dict(proj)) for proj in projects]
+            normalized_workspace = validate_workspace_name(workspace)
+            validate_page(page, page_size, VALID_PAGE_SIZES)
+            params: Dict[str, Any] = {"page": page, "size": page_size, "detail": True}
+            if search and search.strip():
+                params["search"] = search.strip()
+            if sort and sort.strip():
+                params["sort"] = sort.strip()
+            data = self.client.get_json(f"/project/{normalized_workspace}", params=params)
+            if not isinstance(data, dict):
+                raise RuntimeError(f"unexpected response type {type(data).__name__}.")
+            projects = [Project(**item) for item in data.get("list", []) if isinstance(item, dict)]
+            for project in projects:
+                if not project.path:
+                    project.path = f"{normalized_workspace}/{project.name}"
+                if not project.url:
+                    project.url = self.client.web_url(f"@{project.path}")
+            return ProjectList(
+                workspace=normalized_workspace,
+                page=page,
+                size=data.get("size", page_size),
+                total=data.get("total", len(projects)),
+                pages=data.get("pages", 0),
+                projects=projects,
+            )
         except Exception as e:
-            raise RuntimeError(f"Failed to list projects: {str(e)}") from e
+            raise RuntimeError(f"Failed to list projects for workspace '{workspace}': {str(e)}") from e
 
     async def get_project(self, path: str) -> Project:
         """
@@ -75,60 +85,71 @@ class ProjectTools:
         """
         try:
             normalized_path = validate_project_path(path)
-            proj = self.api.project(path=normalized_path)
-            return Project(**to_plain_dict(proj))
+            data = self.client.get_json(f"/project/{normalized_path}")
+            if not isinstance(data, dict):
+                raise RuntimeError(f"unexpected response type {type(data).__name__}.")
+            project = Project(**data)
+            if not project.path:
+                project.path = normalized_path
+            if not project.url:
+                project.url = self.client.web_url(f"@{project.path}")
+            return project
         except Exception as e:
             raise RuntimeError(f"Failed to get project '{path}': {str(e)}") from e
 
 
-def register_project_tools(mcp: FastMCP, api: Api) -> None:
+def register_project_tools(mcp: FastMCP, client: SwanLabClient) -> None:
     """
     Register project-related MCP tools.
 
     Args:
         mcp: FastMCP server instance
-        api: SwanLab Api instance
+        client: SwanLab OpenAPI client
     """
-    project_tools = ProjectTools(api)
+    project_tools = ProjectTools(client)
 
     @mcp.tool(
         name="swanlab_list_projects",
-        description="List all projects with optional filtering by workspace, sort, and search. "
+        title="List projects under a workspace.",
+        description="List projects under a workspace with pagination and optional search/sort. "
         "项目是实验的集合，对应一个研发任务。",
-        annotations=ToolAnnotations(
-            title="List all projects with filtering options.",
-            readOnlyHint=True,
-        ),
+        annotations=ToolAnnotations(readOnlyHint=True),
     )
     async def list_projects(
-        path: Optional[str] = None,
-        sort: Optional[str] = None,
+        workspace: str,
+        page: int = 1,
+        page_size: int = 20,
         search: Optional[str] = None,
-        detail: bool = True,
-    ) -> List[Dict[str, Any]]:
+        sort: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """
-        List all projects with optional filtering.
+        List projects under a workspace, paginated.
 
         Args:
-            path: 空间用户名，用于筛选指定空间下的所有项目
-            sort: 排序方式，可选：created_at（创建时间）、updated_at（更新时间）
-            search: 搜索关键词，模糊匹配项目名
-            detail: 是否返回项目详细信息，默认为 True
+            workspace: 工作空间用户名
+            page: 页码，>= 1，默认 1
+            page_size: 每页条数，必须是 10/12/15/20/24/27/50/100 之一，默认 20
+            search: 可选，搜索关键词，模糊匹配项目名
+            sort: 可选，排序字段，如 created_at、updated_at
 
         Returns:
-            List of projects with details including name, path, description, visibility, etc.
-            返回项目列表，包含名称、路径、描述、可见性等信息。
+            Paginated project list with name, path, description, visibility and statistics.
+            返回分页的项目列表，包含名称、路径、描述、可见性和统计信息。
         """
-        projects = await project_tools.list_projects(path=path, sort=sort, search=search, detail=detail)
-        return [proj.model_dump() for proj in projects]
+        project_list = await project_tools.list_projects(
+            workspace=workspace,
+            page=page,
+            page_size=page_size,
+            search=search,
+            sort=sort,
+        )
+        return project_list.model_dump()
 
     @mcp.tool(
         name="swanlab_get_project",
+        title="Get detailed information about a specific project.",
         description="Get detailed information about a specific project. 获取指定项目的详细信息。",
-        annotations=ToolAnnotations(
-            title="Get detailed information about a specific project.",
-            readOnlyHint=True,
-        ),
+        annotations=ToolAnnotations(readOnlyHint=True),
     )
     async def get_project(path: str) -> Dict[str, Any]:
         """
